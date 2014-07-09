@@ -1,8 +1,8 @@
 Go-ShortURL
 ========
 
-Shorturl like twitter as Daemon , tiny, fast redirect 
-This e.g. I run with proxy_location which with nignx 
+Shorturl like twitter as Daemon , tinier, faster redirect 
+This e.g. I run with "proxy_pass" which in nignx 
 
 
 * Require redis
@@ -24,6 +24,8 @@ as you'd like build
 go build -o shorturl shorturl.go 
 ./shorturl 8887
 ```
+
+##### how to proxy in nginx
 
 ```nginx
 	server {
