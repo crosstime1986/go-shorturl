@@ -1,4 +1,4 @@
-shorturl
+Go-ShortURL
 ========
 
 shorturl like twitter as  Daemon 
