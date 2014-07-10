@@ -17,7 +17,7 @@ import (
 func main() {
 
 	daemon(0, 0)
-	runtime.GOMAXPROCS(1)
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	port := "8887"
 	if len(os.Args) > 1 {
@@ -34,11 +34,11 @@ func main() {
 
 func hello (w http.ResponseWriter, req *http.Request) {
 
-	var client redis.Client
+	var client = new(redis.Client)
 	client.Addr			= "127.0.0.1:6379"
 	client.Db 			= 0
-	client.MaxPoolSize		= 1
-	client.Password 		= "~xxxx"
+	client.MaxPoolSize	= 1
+	client.Password		= "foobared"
 
 	req.ParseForm()
 
@@ -47,9 +47,9 @@ func hello (w http.ResponseWriter, req *http.Request) {
 		url := s
 		_, urlOutput, _ := genShortUrl(url);
 
-		ch := make([]chan int, len(urlOutput) * 2)
+		ch := make([]chan int, len(urlOutput) * 4)
 		for i, v := range urlOutput {
-			ch[i] = setToCache(i, v, url, &client)
+			ch[i] = setToCache(i, v, url, client)
 		}
 		for i := range urlOutput {
 			<-ch[i]
@@ -58,11 +58,11 @@ func hello (w http.ResponseWriter, req *http.Request) {
 
 	} else {
 	 	path := req.URL.Path[1:]
-		if err, url := getFromCache(path, &client); (err == nil) && (len(url) > 0) {
+		if err, url := getFromCache(path, client); (err == nil) && (len(url) > 0) {
 			http.Redirect(w, req, url, http.StatusFound)
 		} else {
-//			fmt.Println(len(url))
-//			fmt.Println(err)
+			// fmt.Println(len(url))
+			// fmt.Println(err)
 		}
 	}
 }
@@ -72,9 +72,10 @@ func hello (w http.ResponseWriter, req *http.Request) {
  */
 func setToCache(area int, key string, val string, client *redis.Client)  chan int {
 
-	ch := make(chan int, 2)
+	ch := make(chan int, 4)
 
 	go func() {
+
 		if _, err := client.Hset(string(strconv.AppendInt([]byte("go::url::"), int64(area), 10)), key, []byte(val)); err != nil {
 			fmt.Println(err)
 		}
