@@ -15,18 +15,30 @@ import (
 )
 
 func main() {
+
 	daemon(0, 0)
-	port := "8088"
+	runtime.GOMAXPROCS(1)
+
+	port := "8887"
 	if len(os.Args) > 1 {
 		port = os.Args[1]
 	}
 
 	http.HandleFunc("/", hello)
-	http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
+	if err := http.ListenAndServe(fmt.Sprintf(":%s", port), nil); err != nil {
+		fmt.Println(err)
+	}
 	os.Exit(0)
 }
 
+
 func hello (w http.ResponseWriter, req *http.Request) {
+
+	var client redis.Client
+	client.Addr			= "127.0.0.1:6379"
+	client.Db 			= 0
+	client.MaxPoolSize		= 1
+	client.Password 		= "~xxxx"
 
 	req.ParseForm()
 
@@ -35,18 +47,18 @@ func hello (w http.ResponseWriter, req *http.Request) {
 		url := s
 		_, urlOutput, _ := genShortUrl(url);
 
-		ch := make([]chan int, len(urlOutput))
+		ch := make([]chan int, len(urlOutput) * 2)
 		for i, v := range urlOutput {
-			ch[i] = setToCache(i, v, url)
+			ch[i] = setToCache(i, v, url, &client)
 		}
 		for i := range urlOutput {
 			<-ch[i]
 		}
-		w.Write([]byte(fmt.Sprintf("<a href='http://%s/%s'>http://%s/%s</a>", "w.1010g.cn", urlOutput[1], "w.1010g.cn", urlOutput[1])))
+		w.Write([]byte(fmt.Sprintf("<a href='http://%s/%s'>http://%s/%s</a>", "w.adango.cn", urlOutput[1], "w.adango.cn", urlOutput[1])))
 
 	} else {
 	 	path := req.URL.Path[1:]
-		if err, url := getFromCache(path); (err == nil) && (len(url) > 0) {
+		if err, url := getFromCache(path, &client); (err == nil) && (len(url) > 0) {
 			http.Redirect(w, req, url, http.StatusFound)
 		} else {
 //			fmt.Println(len(url))
@@ -55,32 +67,26 @@ func hello (w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// 写入redis
-func setToCache(area int, key string, val string)  chan int {
+/**
+ * 写入redis 这个redis类是惰性连接
+ */
+func setToCache(area int, key string, val string, client *redis.Client)  chan int {
 
-	ch := make(chan int)
+	ch := make(chan int, 2)
+
 	go func() {
-		var client redis.Client
-		client.Addr			= "127.0.0.1:6379"
-		client.Db 			= 0
-		client.MaxPoolSize	= 4
-		client.Password 	= "~qyjk9prqYq6Rgqsbd"
 		if _, err := client.Hset(string(strconv.AppendInt([]byte("go::url::"), int64(area), 10)), key, []byte(val)); err != nil {
 			fmt.Println(err)
 		}
 		ch <- area
 	}()
-
 	return ch
 }
 
-func getFromCache(key string) (err error, val string) {
-
-	var client redis.Client
-	client.Addr			= "127.0.0.1:6379"
-	client.Db 			= 0
-	client.MaxPoolSize	= 4
-	client.Password 	= "~qyjk9prqYq6Rgqsbd"
+/**
+ * 读取redis 这个redis类是惰性连接
+ */
+func getFromCache(key string, client *redis.Client) (err error, val string) {
 
 	var bu []byte
 	bu, err = client.Hget("go::url::1", key);
@@ -115,6 +121,9 @@ func genShortUrl(url string) (err error, output []string, str string) {
 	return nil, output, fmt.Sprintf("http://1010g.net/%s", output[0])
 }
 
+/**
+
+ */
 func daemon(nochdir, noclose int) int {
 
     var ret, ret2 uintptr
