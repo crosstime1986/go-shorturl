@@ -88,15 +88,11 @@ func endJob(done <-chan bool, result <-chan JobResult) {
 
 	for work := WORKERS ; work > 0; {
 		select {
-		case in := <- result :
-			fmt.Printf("%v, ", in)
+
 		case <- done:
 			fmt.Printf("---\n")
 			work--
 		}
-	}
-	for in := range result{
-		fmt.Printf("%v, ", in)
 	}
 }
 
