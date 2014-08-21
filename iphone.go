@@ -1,6 +1,3 @@
-/**
- * 这种做发更像是队列
- */
 
 //                       _ooOoo_
 //                      o8888888o
@@ -26,6 +23,10 @@
 //			Buddha shines     Bugs disappear ever
 //
 
+/**
+* 这种做发更像是队列
+*/
+
 package main
 
 import (
@@ -37,9 +38,7 @@ import (
 
 var WORKERS = runtime.NumCPU()
 
-
 func main () {
-
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	begin()
 }
@@ -52,7 +51,6 @@ func begin() {
 
 	tokens := []string {
 		"004e22c06cf1438f753dca5daf85869840c80f7c0c2c0f376466f1270f9cedfa",
-
 	}
 
 	job := make(chan Job, WORKERS);
@@ -61,22 +59,26 @@ func begin() {
 
 	go addJob(job, tokens, result)
 	for i := 0; i < WORKERS; i++ {
-		go doSendJob((chan <- bool)(done), fmt.Sprintf("[线程%d] %s", i, *message), *pemFilePath, (<-chan Job)(job))
+		go doSendJob(done, job, fmt.Sprintf("[线程%d] %s", i, *message), *pemFilePath)
 	}
 	endJob(done, result)
 }
 
+
 func addJob (job chan<- Job, tokes []string, result chan<- JobResult)  {
 	for _, toke := range tokes {
-		job <- Job{toke, result}
+		job <- Job{toke, result, nil}
 	}
 	close(job)
 }
 
-func doSendJob (done chan<-bool, message string, xpath string, jobs <- chan Job) {
+func doSendJob (done chan<-bool, jobs <- chan Job, message string, xpath string) {
+
+	client := apns.NewClient("gateway.sandbox.push.apple.com:2195", xpath, xpath)
 
 	for job := range jobs {
-		job.send(message, xpath)
+		job.client = client
+		job.send(message)
 	}
 	done <- true;
 }
@@ -89,7 +91,16 @@ func endJob(done <-chan bool, result <-chan JobResult) {
 		case <- done:
 			fmt.Printf("---\n")
 			work--
+		case re := <- result:
+			fmt.Println(re)
 		}
+	}
+
+	select {
+	case re := <- result:
+		fmt.Println(re)
+	default:
+		return;
 	}
 }
 
@@ -98,21 +109,21 @@ func endJob(done <-chan bool, result <-chan JobResult) {
 type Job struct {
 	token		string
 	result		chan<- JobResult
+	client 		*apns.Client
 }
 
-func (job Job) send (message string, xpath string) {
+func (job Job) send (message string) {
 
 	payload := apns.NewPayload()
 	payload.Alert = message
 	payload.Badge = 1
-	payload.Sound = "a2b9327771f11accb1d1788bfefe664f.mp3" 					//"fa9977e71e1f2e84cfc57a2ba1197c5b.mp3"
+	payload.Sound = "fa9977e71e1f2e84cfc57a2ba1197c5b.mp3" 					//"fa9977e71e1f2e84cfc57a2ba1197c5b.mp3"
 
 	pn := apns.NewPushNotification()
 	pn.DeviceToken = job.token
 	pn.AddPayload(payload)
 
-	client := apns.NewClient("gateway.sandbox.push.apple.com:2195", xpath, xpath)
-	resp := client.Send(pn)
+	resp := job.client.Send(pn)
 	alert, _ := pn.PayloadString()
 
 	job.result <- JobResult{to: resp.Success, alert: alert}
