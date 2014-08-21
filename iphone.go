@@ -2,6 +2,30 @@
  * 这种做发更像是队列
  */
 
+//                       _ooOoo_
+//                      o8888888o
+//                      88" . "88
+//                      (| -_- |)
+//                      O\  =  /O
+//                    ___/`___'\___
+//                  .' \\|     |// '.
+//                 / \\|||  :  |||// \
+//                / _||||| _:_ |||||- \
+//               |   | \\\  -  /// |   |
+//               | \_|  ''\---/''  |_/ |
+//               \  .-\__  '-'  ___/-. /
+//            ___'. .'   /--.--\   `. .'___
+//          .""  '< `.___\_<|>_/___.' >'  "".
+//         | | :   `_ \`.:`\_/`:.`/ - ` : | |
+//         \  \ `_.    \_ __\/__ _/  .-` /  /
+//     =====`-.____`.___ \_____/___.-`___.-'=====
+//                       `=---='
+//
+//  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//
+//			Buddha shines     Bugs disappear ever
+//
+
 package main
 
 import (
@@ -13,33 +37,6 @@ import (
 
 var WORKERS = runtime.NumCPU()
 
-type Job struct {
-	token		string
-	result		chan<- JobResult
-}
-
-func (job Job) send (message string, xpath string) {
-
-	payload := apns.NewPayload()
-	payload.Alert = message
-	payload.Badge = 1
-	payload.Sound = "a2b9327771f11accb1d1788bfefe664f.mp3" 					//"fa9977e71e1f2e84cfc57a2ba1197c5b.mp3"
-
-	pn := apns.NewPushNotification()
-	pn.DeviceToken = job.token
-	pn.AddPayload(payload)
-
-	client := apns.NewClient("gateway.sandbox.push.apple.com:2195", xpath, xpath)
-	resp := client.Send(pn)
-	alert, _ := pn.PayloadString()
-
-	job.result <- JobResult{to: resp.Success, alert: alert}
-}
-
-type JobResult struct {
-	alert	string
-	to		bool
-}
 
 func main () {
 
@@ -96,3 +93,32 @@ func endJob(done <-chan bool, result <-chan JobResult) {
 	}
 }
 
+
+
+type Job struct {
+	token		string
+	result		chan<- JobResult
+}
+
+func (job Job) send (message string, xpath string) {
+
+	payload := apns.NewPayload()
+	payload.Alert = message
+	payload.Badge = 1
+	payload.Sound = "a2b9327771f11accb1d1788bfefe664f.mp3" 					//"fa9977e71e1f2e84cfc57a2ba1197c5b.mp3"
+
+	pn := apns.NewPushNotification()
+	pn.DeviceToken = job.token
+	pn.AddPayload(payload)
+
+	client := apns.NewClient("gateway.sandbox.push.apple.com:2195", xpath, xpath)
+	resp := client.Send(pn)
+	alert, _ := pn.PayloadString()
+
+	job.result <- JobResult{to: resp.Success, alert: alert}
+}
+
+type JobResult struct {
+	alert	string
+	to		bool
+}
